@@ -9,9 +9,9 @@ const cli = meow(`
 	  $ org-cli
 
 	Options
-	  --config, -c  Path to the strategy config JSON (default: strategy.config.json)
-	  --help, -h    Show help
-	  --version, -v Show version
+	  --config, -c <path>  Path to the strategy config JSON (default: strategy.config.json)
+	  --help, -h           Show help
+	  --version, -v        Show version
 
 	Commands
 	  /dryrun    Preview file organization
