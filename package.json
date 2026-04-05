@@ -1,0 +1,29 @@
+{
+  "name": "org-cli",
+  "version": "1.0.0",
+  "description": "File organization CLI built with Ink",
+  "main": "dist/cli.js",
+  "bin": {
+    "org-cli": "./dist/cli.js"
+  },
+  "scripts": {
+    "start": "ts-node src/cli.tsx",
+    "build": "tsc",
+    "dev": "ts-node-dev src/cli.tsx"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "fs-extra": "^10.0.0",
+    "ink": "^3.2.0",
+    "ink-text-input": "^4.0.3",
+    "meow": "^9.0.0",
+    "react": "^17.0.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^9.0.13",
+    "@types/node": "^16.11.7",
+    "@types/react": "^17.0.34",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.4.4"
+  }
+}
