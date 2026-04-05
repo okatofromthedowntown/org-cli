@@ -1,32 +1,41 @@
 import fs from 'fs-extra';
 import path from 'path';
 
-export const EXT_MAP: Record<string, string[]> = {
-  'Music': ['.mp3', '.m4a'],
-  'Images': ['.jpg', '.jpeg', '.png', '.heic', '.webp'],
-  'Documents': ['.pdf', '.epub', '.txt', '.md'],
-  'Installers': ['.dmg', '.exe', '.iso', '.app'],
-  'Archives': ['.zip'],
-  'Videos': ['.mp4'],
-  'Keys': ['.key', '.cer']
-};
-
-export const IGNORE_FILES = ['organize_files.py', 'organization_plan.md', '.DS_Store', '.localized', 'package.json', 'package-lock.json', 'tsconfig.json', 'node_modules', 'src', 'dist'];
-
-export interface FileItem {
-  name: string;
-  isDir: boolean;
-  targetFolder: string | null;
+export interface ConfigRule {
+  match: string[];
+  target: string;
 }
 
-export function getTargetFolder(filename: string): string | null {
+export interface Config {
+  categories: string[];
+  rules: ConfigRule[];
+}
+
+export const IGNORE_FILES = [
+  'organize_files.py',
+  'organization_plan.md',
+  '.DS_Store',
+  '.localized',
+  'package.json',
+  'package-lock.json',
+  'tsconfig.json',
+  'node_modules',
+  'src',
+  'dist',
+  '.git',
+  '.gitignore',
+  'README.md',
+  'strategy.config.json'
+];
+
+export function getTargetFolder(filename: string, config: Config): string | null {
   if (filename.endsWith('.app')) {
     return 'Installers';
   }
   const ext = path.extname(filename).toLowerCase();
-  for (const [folder, extensions] of Object.entries(EXT_MAP)) {
-    if (extensions.includes(ext)) {
-      return folder;
+  for (const rule of config.rules) {
+    if (rule.match.includes(ext)) {
+      return rule.target;
     }
   }
   return null;
@@ -43,18 +52,19 @@ export interface OrganizedResult {
   unmoved: { name: string; isDir: boolean }[];
 }
 
-export async function organize(targetDir: string, dryRun: boolean = false): Promise<OrganizedResult> {
+export async function organize(targetDir: string, config: Config, dryRun: boolean = false): Promise<OrganizedResult> {
   const targetPath = path.resolve(targetDir);
   const items = await fs.readdir(targetPath);
   
   const stats: OrganizeStats = {};
-  Object.keys(EXT_MAP).forEach(key => stats[key] = 0);
+  config.categories.forEach(cat => stats[cat] = 0);
   
   const logs: string[] = [];
   const tree: Record<string, string[]> = {};
   const unmoved: { name: string; isDir: boolean }[] = [];
 
   for (const itemName of items.sort()) {
+    // Also ignore the config file itself if it's in the same directory
     if (IGNORE_FILES.includes(itemName)) {
       unmoved.push({ name: itemName, isDir: false });
       continue;
@@ -66,7 +76,7 @@ export async function organize(targetDir: string, dryRun: boolean = false): Prom
 
     let targetFolder: string | null = null;
     if (!isDir || itemName.endsWith('.app')) {
-      targetFolder = getTargetFolder(itemName);
+      targetFolder = getTargetFolder(itemName, config);
     }
 
     if (targetFolder) {
@@ -82,7 +92,7 @@ export async function organize(targetDir: string, dryRun: boolean = false): Prom
           await fs.ensureDir(destFolder);
           if (await fs.pathExists(destPath)) {
             logs.push(`[Skipped] File '${itemName}' already exists in '${targetFolder}'`);
-            stats[targetFolder]--; // Don't count skipped as moved
+            stats[targetFolder]--; 
           } else {
             await fs.move(itemPath, destPath);
             logs.push(`[Moved] '${itemName}' -> '${targetFolder}/'`);

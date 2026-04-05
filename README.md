@@ -11,14 +11,38 @@ An interactive file organization CLI built with Node.js, React, and Ink.
     $ org-cli
 
   Options
-    --help, -h  Show help
-    --version, -v  Show version
+    --config, -c  Path to the strategy config JSON (default: strategy.config.json)
+    --help, -h    Show help
+    --version, -v Show version
 
   Commands
-    /dryrun  Preview file organization
-    /help    Show organization plan
-    /run     Execute file organization
-    /exit    Quit the CLI
+    /dryrun    Preview file organization
+    /strategy  View current organization strategy (JSON)
+    /help      Show organization plan
+    /run       Execute file organization
+    /exit      Quit the CLI
+```
+
+## Configuration (strategy.config.json)
+
+You can now decouple your organization rules into a JSON file.
+
+### Example Format
+
+```json
+{
+  "categories": ["Music", "Images", "Documents", "Others"],
+  "rules": [
+    {
+      "match": [".mp3", ".m4a"],
+      "target": "Music"
+    },
+    {
+      "match": [".jpg", ".png"],
+      "target": "Images"
+    }
+  ]
+}
 ```
 
 ## Organization Plan (文件整理方案)
@@ -26,6 +50,8 @@ An interactive file organization CLI built with Node.js, React, and Ink.
 本方案旨在根据文件扩展名将文件归类到特定的文件夹中，以保持目录整洁。
 
 ### Target Folders & Rules (目标文件夹结构与规则)
+
+默认规则如下（可在 `strategy.config.json` 中修改）：
 
 | 目标文件夹 (Folder) | 说明 (Description) | 包含的文件扩展名 (Extensions) |
 | :--- | :--- | :--- |

@@ -3,7 +3,7 @@ import { render, Text, Box, useApp, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import fs from 'fs-extra';
 import path from 'path';
-import { organize, OrganizedResult } from './organizer';
+import { organize, OrganizedResult, Config } from './organizer';
 
 const HELP_TEXT = `# 文件整理方案
 
@@ -28,35 +28,64 @@ const HELP_TEXT = `# 文件整理方案
 3.  **安全检查**：如果目标文件夹中已存在同名文件，脚本应跳过该文件或提示，避免覆盖。
 `;
 
-const App = () => {
+interface Props {
+  configPath: string;
+}
+
+const App: React.FC<Props> = ({ configPath }) => {
   const { exit } = useApp();
   const [query, setQuery] = useState('');
-  const [view, setView] = useState<'prompt' | 'help' | 'dryrun' | 'run'>('prompt');
+  const [view, setView] = useState<'prompt' | 'help' | 'dryrun' | 'run' | 'strategy'>('prompt');
   const [result, setResult] = useState<OrganizedResult | null>(null);
+  const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const fullPath = path.resolve(configPath);
+        if (await fs.pathExists(fullPath)) {
+          const data = await fs.readJson(fullPath);
+          setConfig(data);
+        } else {
+          setError(`Config file not found: ${configPath}`);
+        }
+      } catch (err: any) {
+        setError(`Failed to load config: ${err.message}`);
+      }
+    };
+    loadConfig();
+  }, [configPath]);
 
   const handleSubmit = async (value: string) => {
     const cmd = value.trim().toLowerCase();
     setQuery('');
 
+    if (!config) {
+      setError("Configuration not loaded.");
+      return;
+    }
+
     if (cmd === '/help') {
       setView('help');
+    } else if (cmd === '/strategy') {
+      setView('strategy');
     } else if (cmd === '/dryrun') {
       setLoading(true);
-      const res = await organize('.', true);
+      const res = await organize('.', config, true);
       setResult(res);
       setLoading(false);
       setView('dryrun');
     } else if (cmd === '/run') {
       setLoading(true);
-      const res = await organize('.', false);
+      const res = await organize('.', config, false);
       setResult(res);
       setLoading(false);
       setView('run');
     } else if (cmd === '/exit' || cmd === 'exit' || cmd === 'quit') {
       exit();
     } else {
-      // Unknown command or just prompt
       setView('prompt');
     }
   };
@@ -67,6 +96,17 @@ const App = () => {
     }
   });
 
+  if (error) {
+    return (
+      <Box padding={1} flexDirection="column">
+        <Text color="red" bold>Error: {error}</Text>
+        <Box marginTop={1}>
+          <Text color="gray">Please check your config file or use --config to specify a valid one.</Text>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" padding={1}>
       <Box borderStyle="round" borderColor="cyan" paddingX={1}>
@@ -76,10 +116,11 @@ const App = () => {
       {view === 'prompt' && (
         <Box marginTop={1} flexDirection="column">
           <Text>Welcome to File Organizer CLI. Available commands:</Text>
-          <Text color="gray">  /dryrun - Preview organization</Text>
-          <Text color="gray">  /help   - View organization plan</Text>
-          <Text color="gray">  /run    - Organize files now</Text>
-          <Text color="gray">  /exit   - Quit</Text>
+          <Text color="gray">  /dryrun   - Preview organization</Text>
+          <Text color="gray">  /strategy - View current strategy (JSON)</Text>
+          <Text color="gray">  /help     - View organization plan</Text>
+          <Text color="gray">  /run      - Organize files now</Text>
+          <Text color="gray">  /exit     - Quit</Text>
           <Box marginTop={1}>
             <Text color="green">{'>'} </Text>
             <TextInput value={query} onChange={setQuery} onSubmit={handleSubmit} placeholder="Enter command..." />
@@ -91,6 +132,18 @@ const App = () => {
         <Box marginTop={1} flexDirection="column">
           <Text color="yellow" bold>--- Organization Plan ---</Text>
           <Text>{HELP_TEXT}</Text>
+          <Box marginTop={1}>
+            <Text color="gray">(Press ESC to go back)</Text>
+          </Box>
+        </Box>
+      )}
+
+      {view === 'strategy' && config && (
+        <Box marginTop={1} flexDirection="column">
+          <Text color="yellow" bold>--- Current Strategy (from {configPath}) ---</Text>
+          <Box borderStyle="single" padding={1} marginTop={1}>
+            <Text>{JSON.stringify(config, null, 2)}</Text>
+          </Box>
           <Box marginTop={1}>
             <Text color="gray">(Press ESC to go back)</Text>
           </Box>

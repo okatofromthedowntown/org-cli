@@ -9,15 +9,22 @@ const cli = meow(`
 	  $ org-cli
 
 	Options
-	  --help, -h  Show help
-	  --version, -v  Show version
+	  --config, -c  Path to the strategy config JSON (default: strategy.config.json)
+	  --help, -h    Show help
+	  --version, -v Show version
 
 	Commands
-	  /dryrun  Preview file organization
-	  /help    Show organization plan
-	  /run     Execute file organization
+	  /dryrun    Preview file organization
+	  /strategy  View current organization strategy
+	  /help      Show organization plan
+	  /run       Execute file organization
 `, {
 	flags: {
+		config: {
+			type: 'string',
+			alias: 'c',
+			default: 'strategy.config.json'
+		},
 		help: {
 			type: 'boolean',
 			alias: 'h'
@@ -29,4 +36,4 @@ const cli = meow(`
 	}
 });
 
-render(<App />);
+render(<App configPath={cli.flags.config} />);
