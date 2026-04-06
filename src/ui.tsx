@@ -32,6 +32,22 @@ interface Props {
   configPath: string;
 }
 
+const normalizeFallback = (fb: any): any => {
+  if (!fb) return null;
+  if (fb.target && !fb.action) {
+    return {
+      action: 'move',
+      target: fb.target,
+      log: fb.log !== undefined ? fb.log : true
+    };
+  }
+  return {
+    action: fb.action || 'skip',
+    target: fb.target,
+    log: fb.log !== undefined ? fb.log : true
+  };
+};
+
 const App: React.FC<Props> = ({ configPath }) => {
   const { exit } = useApp();
   const [query, setQuery] = useState('');
@@ -45,27 +61,30 @@ const App: React.FC<Props> = ({ configPath }) => {
     const loadConfig = async () => {
       try {
         const defaultPath = path.resolve('strategy.config.json');
+        const defaultConfigRaw = await fs.readJson(defaultPath);
+        const defaultFallback = normalizeFallback(defaultConfigRaw.fallback);
+        
         let finalConfig: Config;
-
-        // Load default config as a baseline
-        const defaultConfig: Config = await fs.readJson(defaultPath);
 
         if (configPath !== 'strategy.config.json') {
           const customPath = path.resolve(configPath);
           if (await fs.pathExists(customPath)) {
-            const customConfig = await fs.readJson(customPath);
+            const customConfigRaw = await fs.readJson(customPath);
+            const customFallback = normalizeFallback(customConfigRaw.fallback);
             
-            // Merge logic: use custom config but inherit fallback if missing
             finalConfig = {
-              ...customConfig,
-              fallback: customConfig.fallback || defaultConfig.fallback
+              ...customConfigRaw,
+              fallback: customFallback || defaultFallback
             };
           } else {
             setError(`Config file not found: ${configPath}`);
             return;
           }
         } else {
-          finalConfig = defaultConfig;
+          finalConfig = {
+            ...defaultConfigRaw,
+            fallback: defaultFallback
+          };
         }
 
         setConfig(finalConfig);

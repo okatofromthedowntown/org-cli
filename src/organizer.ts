@@ -115,9 +115,34 @@ export async function organize(targetDir: string, config: Config, dryRun: boolea
       }
     } else {
       // Fallback logic
-      unmoved.push({ name: itemName, isDir });
-      if (!dryRun && config.fallback && config.fallback.log) {
-        logs.push(`[Fallback] '${itemName}' (Action: ${config.fallback.action})`);
+      const fb = config.fallback;
+      if (!dryRun && fb.action === 'move' && fb.target) {
+        const targetFolder = fb.target;
+        const destFolder = path.join(targetPath, targetFolder);
+        let finalItemName = itemName;
+        let destPath = path.join(destFolder, finalItemName);
+
+        try {
+          await fs.ensureDir(destFolder);
+          if (await fs.pathExists(destPath)) {
+            const timestamp = new Date().toISOString().replace(/[-:T]/g, '').split('.')[0];
+            finalItemName = `${itemName}.${timestamp}`;
+            destPath = path.join(destFolder, finalItemName);
+            if (fb.log) logs.push(`[Fallback-Rename] '${itemName}' exists, moving as '${finalItemName}'`);
+          }
+          await fs.move(itemPath, destPath);
+          if (fb.log) logs.push(`[Fallback-Move] '${itemName}' -> '${targetFolder}/${finalItemName}'`);
+          
+          if (!stats[targetFolder]) stats[targetFolder] = 0;
+          stats[targetFolder]++;
+        } catch (err: any) {
+          logs.push(`[Fallback-Error] Could not move '${itemName}': ${err.message}`);
+        }
+      } else {
+        unmoved.push({ name: itemName, isDir });
+        if (!dryRun && fb.log) {
+          logs.push(`[Fallback] '${itemName}' (Action: ${fb.action})`);
+        }
       }
     }
   }
