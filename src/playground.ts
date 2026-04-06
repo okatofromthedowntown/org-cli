@@ -1,34 +1,45 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { Config } from './schema';
 import chalk from 'chalk';
 
 /**
- * Initializes a test playground based on the configuration.
+ * Default playground configuration, now independent of the core config schema.
  */
-export async function initPlayground(config: Config) {
-  if (!config.playground) {
-    console.error(chalk.red('Error: No playground configuration found in the strategy config.'));
-    return;
-  }
+const PLAYGROUND_DEFAULTS = {
+  folder: 'test-playground',
+  files: [
+    "vacation.jpg",
+    "budget.pdf",
+    "theme_song.mp3",
+    "archive_v1.zip",
+    "tutorial.mp4",
+    "id_rsa.key",
+    "installer.dmg",
+    "unknown_file.xyz",
+    "old_photo.png",
+    "notes.txt"
+  ]
+};
 
-  const playgroundDir = path.resolve(config.playground.folder);
+/**
+ * Initializes a test playground. Completely decoupled from the organization engine.
+ */
+export async function initPlayground() {
+  const playgroundDir = path.resolve(PLAYGROUND_DEFAULTS.folder);
   
   try {
     // Create the playground directory if it doesn't exist
     await fs.ensureDir(playgroundDir);
     console.log(chalk.cyan(`Initializing playground in: ${playgroundDir}`));
 
-    for (const filename of config.playground.files) {
+    for (const filename of PLAYGROUND_DEFAULTS.files) {
       const filePath = path.join(playgroundDir, filename);
-      
-      // We use empty strings for content to simulate empty files
       await fs.ensureFile(filePath);
       console.log(chalk.gray(`  - Created: ${filename}`));
     }
 
     console.log(chalk.green('\nPlayground initialization complete!'));
-    console.log(chalk.yellow(`You can now run: cd ${config.playground.folder} && org-cli`));
+    console.log(chalk.yellow(`You can now run: cd ${PLAYGROUND_DEFAULTS.folder} && org-cli`));
   } catch (err: any) {
     console.error(chalk.red(`Failed to initialize playground: ${err.message}`));
   }

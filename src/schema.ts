@@ -35,11 +35,7 @@ export function createConfigSectionSchema<T extends z.ZodTypeAny>(valueSchema: T
 export const ConfigSchema = z.object({
   categories: createConfigSectionSchema(z.array(z.string())),
   rules: createConfigSectionSchema(z.array(ConfigRuleSchema)),
-  fallback: createConfigSectionSchema(FallbackConfigSchema),
-  playground: z.object({
-    folder: z.string().default('playground'),
-    files: z.array(z.string())
-  }).optional()
+  fallback: createConfigSectionSchema(FallbackConfigSchema)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

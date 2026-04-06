@@ -48,14 +48,7 @@ const cli = meow(`
 async function run() {
   if (cli.flags.initTest) {
     try {
-      const configPath = path.resolve(cli.flags.config);
-      if (!(await fs.pathExists(configPath))) {
-        console.error(chalk.red(`Error: Config file not found at ${configPath}`));
-        process.exit(1);
-      }
-      const configRaw = await fs.readJson(configPath);
-      const config = ConfigSchema.parse(configRaw);
-      await initPlayground(config);
+      await initPlayground();
       process.exit(0);
     } catch (err: any) {
       console.error(chalk.red(`Initialization Error: ${err.message}`));
