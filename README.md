@@ -10,6 +10,7 @@ An interactive file organization CLI built with Node.js, React, and Ink.
 
   Options
     --config, -c <path>  Path to the strategy config JSON (default: strategy.config.json)
+    --init-test          Initialize a test playground with dummy files
     --help, -h           Show help
     --version, -v        Show version
 

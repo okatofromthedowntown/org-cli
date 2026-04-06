@@ -57,5 +57,20 @@
       "action": "skip",
       "log": true
     }
+  },
+  "playground": {
+    "folder": "test-playground",
+    "files": [
+      "vacation.jpg",
+      "budget.pdf",
+      "theme_song.mp3",
+      "archive_v1.zip",
+      "tutorial.mp4",
+      "id_rsa.key",
+      "installer.dmg",
+      "unknown_file.xyz",
+      "old_photo.png",
+      "notes.txt"
+    ]
   }
 }
