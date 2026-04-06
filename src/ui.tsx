@@ -3,8 +3,12 @@ import { render, Text, Box, useApp, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import fs from 'fs-extra';
 import path from 'path';
-import { createPlan, applyPlan, Plan, Config, ConfigSchema } from './organizer';
 import { ZodError } from 'zod';
+
+// Decoupled imports
+import { Config, ConfigSchema, Plan } from './schema';
+import { createPlan } from './planner';
+import { applyPlan } from './executor';
 
 const HELP_TEXT = `# 文件整理方案
 
