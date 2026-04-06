@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { z } from 'zod';
 
-// --- Schema Definitions (Runtime & Type-safe) ---
+// --- Schema Definitions ---
 
 export const ConfigModeSchema = z.enum(['inherit', 'override']);
 export type ConfigMode = z.infer<typeof ConfigModeSchema>;
@@ -34,11 +34,30 @@ export const ConfigSchema = z.object({
   fallback: createConfigSectionSchema(FallbackConfigSchema)
 });
 
-// We can still export the interface for type-safety across the project
 export type Config = z.infer<typeof ConfigSchema>;
 export type ConfigSection<T> = { mode: ConfigMode; value: T };
 
-// --- End of Schema ---
+// --- New Plan-Execution Types ---
+
+export interface Decision {
+  action: 'move' | 'skip';
+  target?: string;
+  reason: string;
+  source: 'rule' | 'fallback' | 'ignore';
+}
+
+export interface PlanItem {
+  from: string;
+  to?: string;
+  decision: Decision;
+}
+
+export interface Plan {
+  items: PlanItem[];
+  stats: Record<string, number>;
+}
+
+// --- Constants ---
 
 export const IGNORE_FILES = [
   'organize_files.py',
@@ -57,113 +76,115 @@ export const IGNORE_FILES = [
   'strategy.config.json'
 ];
 
-export function getTargetFolder(filename: string, config: Config): string | null {
-  if (filename.endsWith('.app')) {
-    return 'Installers';
+// --- Core Engine ---
+
+/**
+ * 决策引擎：根据文件和配置，决定该如何处理。
+ */
+export function decide(filename: string, isDir: boolean, config: Config): Decision {
+  // 1. Check Ignore
+  if (IGNORE_FILES.includes(filename)) {
+    return { action: 'skip', reason: 'Ignored file', source: 'ignore' };
   }
-  const ext = path.extname(filename).toLowerCase();
-  for (const rule of config.rules.value) {
-    if (rule.match.includes(ext)) {
-      return rule.target;
+
+  // 2. Try Rules (Higher priority first)
+  if (!isDir || filename.endsWith('.app')) {
+    const ext = path.extname(filename).toLowerCase();
+    for (const rule of config.rules.value) {
+      if (rule.match.includes(ext)) {
+        return { 
+          action: 'move', 
+          target: rule.target, 
+          reason: `Matched rule [${rule.match.join(', ')}]`, 
+          source: 'rule' 
+        };
+      }
     }
   }
-  return null;
+
+  // 3. Fallback
+  const fb = config.fallback.value;
+  return {
+    action: fb.action,
+    target: fb.target,
+    reason: `No rules matched, applying fallback (${fb.action})`,
+    source: 'fallback'
+  };
 }
 
-export interface OrganizeStats {
-  [key: string]: number;
-}
-
-export interface OrganizedResult {
-  stats: OrganizeStats;
-  logs: string[];
-  tree: Record<string, string[]>;
-  unmoved: { name: string; isDir: boolean }[];
-}
-
-export async function organize(targetDir: string, config: Config, dryRun: boolean = false): Promise<OrganizedResult> {
+/**
+ * 计划生成器：扫描目录并生成完整的执行计划。
+ */
+export async function createPlan(targetDir: string, config: Config): Promise<Plan> {
   const targetPath = path.resolve(targetDir);
-  const items = await fs.readdir(targetPath);
+  const filenames = await fs.readdir(targetPath);
   
-  const stats: OrganizeStats = {};
+  const items: PlanItem[] = [];
+  const stats: Record<string, number> = {};
   config.categories.value.forEach(cat => stats[cat] = 0);
-  
-  const logs: string[] = [];
-  const tree: Record<string, string[]> = {};
-  const unmoved: { name: string; isDir: boolean }[] = [];
 
-  for (const itemName of items.sort()) {
-    if (IGNORE_FILES.includes(itemName)) {
-      unmoved.push({ name: itemName, isDir: false });
+  for (const name of filenames.sort()) {
+    const filePath = path.join(targetPath, name);
+    const stat = await fs.stat(filePath);
+    const decision = decide(name, stat.isDirectory(), config);
+    
+    let to: string | undefined = undefined;
+    if (decision.action === 'move' && decision.target) {
+      to = path.join(targetPath, decision.target, name);
+      if (!stats[decision.target]) stats[decision.target] = 0;
+      stats[decision.target]++;
+    }
+
+    items.push({ from: name, to, decision });
+  }
+
+  return { items, stats };
+}
+
+/**
+ * 执行器：按照计划进行实际的 IO 操作。
+ */
+export async function applyPlan(targetDir: string, plan: Plan, onProgress?: (msg: string) => void): Promise<string[]> {
+  const targetPath = path.resolve(targetDir);
+  const logs: string[] = [];
+
+  for (const item of plan.items) {
+    if (item.decision.action === 'skip') {
+      if (item.decision.source === 'fallback' && onProgress) {
+        onProgress(`[Fallback] '${item.from}' (Action: skip)`);
+      }
       continue;
     }
 
-    const itemPath = path.join(targetPath, itemName);
-    const stat = await fs.stat(itemPath);
-    const isDir = stat.isDirectory();
+    if (item.decision.action === 'move' && item.to && item.decision.target) {
+      const destFolder = path.join(targetPath, item.decision.target);
+      let finalDestPath = item.to;
+      let finalName = item.from;
 
-    let targetFolder: string | null = null;
-    if (!isDir || itemName.endsWith('.app')) {
-      targetFolder = getTargetFolder(itemName, config);
-    }
-
-    if (targetFolder) {
-      if (!tree[targetFolder]) tree[targetFolder] = [];
-      tree[targetFolder].push(itemName);
-      stats[targetFolder]++;
-
-      if (!dryRun) {
-        const destFolder = path.join(targetPath, targetFolder);
-        let finalItemName = itemName;
-        let destPath = path.join(destFolder, finalItemName);
-
-        try {
-          await fs.ensureDir(destFolder);
-          if (await fs.pathExists(destPath)) {
-            const timestamp = new Date().toISOString().replace(/[-:T]/g, '').split('.')[0];
-            finalItemName = `${itemName}.${timestamp}`;
-            destPath = path.join(destFolder, finalItemName);
-            logs.push(`[Renamed] File '${itemName}' already exists, moving as '${finalItemName}'`);
-          }
-          await fs.move(itemPath, destPath);
-          logs.push(`[Moved] '${itemName}' -> '${targetFolder}/${finalItemName}'`);
-        } catch (err: any) {
-          logs.push(`[Error] Could not move '${itemName}': {err.message}`);
-          stats[targetFolder]--;
+      try {
+        await fs.ensureDir(destFolder);
+        
+        // Handle Collisions (Rename with timestamp)
+        if (await fs.pathExists(finalDestPath)) {
+          const timestamp = new Date().toISOString().replace(/[-:T]/g, '').split('.')[0];
+          finalName = `${item.from}.${timestamp}`;
+          finalDestPath = path.join(destFolder, finalName);
+          const msg = `[Renamed] '${item.from}' already exists, moving as '${finalName}'`;
+          logs.push(msg);
+          if (onProgress) onProgress(msg);
         }
-      }
-    } else {
-      const fb = config.fallback.value;
-      if (!dryRun && fb.action === 'move' && fb.target) {
-        const targetFolder = fb.target;
-        const destFolder = path.join(targetPath, targetFolder);
-        let finalItemName = itemName;
-        let destPath = path.join(destFolder, finalItemName);
 
-        try {
-          await fs.ensureDir(destFolder);
-          if (await fs.pathExists(destPath)) {
-            const timestamp = new Date().toISOString().replace(/[-:T]/g, '').split('.')[0];
-            finalItemName = `${itemName}.${timestamp}`;
-            destPath = path.join(destFolder, finalItemName);
-            if (fb.log) logs.push(`[Fallback-Rename] '${itemName}' exists, moving as '${finalItemName}'`);
-          }
-          await fs.move(itemPath, destPath);
-          if (fb.log) logs.push(`[Fallback-Move] '${itemName}' -> '${targetFolder}/${finalItemName}'`);
-          
-          if (!stats[targetFolder]) stats[targetFolder] = 0;
-          stats[targetFolder]++;
-        } catch (err: any) {
-          logs.push(`[Fallback-Error] Could not move '${itemName}': {err.message}`);
-        }
-      } else {
-        unmoved.push({ name: itemName, isDir });
-        if (!dryRun && fb.log) {
-          logs.push(`[Fallback] '${itemName}' (Action: {fb.action})`);
-        }
+        await fs.move(path.join(targetPath, item.from), finalDestPath);
+        const msg = `[Moved] '${item.from}' -> '${item.decision.target}/${finalName}' (${item.decision.reason})`;
+        logs.push(msg);
+        if (onProgress) onProgress(msg);
+      } catch (err: any) {
+        const msg = `[Error] Could not move '${item.from}': ${err.message}`;
+        logs.push(msg);
+        if (onProgress) onProgress(msg);
       }
     }
   }
 
-  return { stats, logs, tree, unmoved };
+  return logs;
 }
