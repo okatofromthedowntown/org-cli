@@ -105,15 +105,21 @@ const App: React.FC<Props> = ({ configPath }) => {
             };
 
             // Final Schema Validation (Fail-Fast)
-            ConfigSchema.parse(finalConfig);
+            const validatedConfig = ConfigSchema.parse(finalConfig);
 
-            setConfig(finalConfig);
+            // Pre-sort rules by priority (highest first)
+            validatedConfig.rules.value.sort((a, b) => b.priority - a.priority);
+
+            setConfig(validatedConfig);
           } else {
             setError(`Config file not found: ${configPath}`);
             return;
           }
         } else {
-          setConfig(defaultConfig);
+          // Even for default config, we should validate and sort (though default might be 0)
+          const validatedDefault = ConfigSchema.parse(defaultConfigRaw);
+          validatedDefault.rules.value.sort((a, b) => b.priority - a.priority);
+          setConfig(validatedDefault);
         }
       } catch (err: any) {
         if (err instanceof ZodError) {

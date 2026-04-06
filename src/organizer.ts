@@ -9,7 +9,8 @@ export type ConfigMode = z.infer<typeof ConfigModeSchema>;
 
 export const ConfigRuleSchema = z.object({
   match: z.array(z.string()),
-  target: z.string()
+  target: z.string(),
+  priority: z.number().default(0)
 });
 export type ConfigRule = z.infer<typeof ConfigRuleSchema>;
 

@@ -16,31 +16,38 @@
     "value": [
       {
         "match": [".mp3", ".m4a"],
-        "target": "Music"
+        "target": "Music",
+        "priority": 0
       },
       {
         "match": [".jpg", ".jpeg", ".png", ".heic", ".webp"],
-        "target": "Images"
+        "target": "Images",
+        "priority": 0
       },
       {
         "match": [".pdf", ".epub", ".txt", ".md"],
-        "target": "Documents"
+        "target": "Documents",
+        "priority": 0
       },
       {
         "match": [".dmg", ".exe", ".iso", ".app"],
-        "target": "Installers"
+        "target": "Installers",
+        "priority": 0
       },
       {
         "match": [".zip"],
-        "target": "Archives"
+        "target": "Archives",
+        "priority": 0
       },
       {
         "match": [".mp4"],
-        "target": "Videos"
+        "target": "Videos",
+        "priority": 0
       },
       {
         "match": [".key", ".cer"],
-        "target": "Keys"
+        "target": "Keys",
+        "priority": 0
       }
     ]
   },
