@@ -3,7 +3,8 @@ import { render, Text, Box, useApp, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import fs from 'fs-extra';
 import path from 'path';
-import { organize, OrganizedResult, Config, ConfigSection } from './organizer';
+import { organize, OrganizedResult, Config, ConfigSection, ConfigSchema } from './organizer';
+import { ZodError } from 'zod';
 
 const HELP_TEXT = `# 文件整理方案
 
@@ -85,7 +86,11 @@ const App: React.FC<Props> = ({ configPath }) => {
     const loadConfig = async () => {
       try {
         const defaultPath = path.resolve('strategy.config.json');
-        const defaultConfig: Config = await fs.readJson(defaultPath);
+        const defaultConfigRaw = await fs.readJson(defaultPath);
+        
+        // Validate baseline config
+        ConfigSchema.parse(defaultConfigRaw);
+        const defaultConfig = defaultConfigRaw as Config;
 
         if (configPath !== 'strategy.config.json') {
           const customPath = path.resolve(configPath);
@@ -98,6 +103,10 @@ const App: React.FC<Props> = ({ configPath }) => {
               rules: mergeSection(defaultConfig.rules, customRaw.rules),
               fallback: mergeSection(defaultConfig.fallback, customRaw.fallback, normalizeFallbackValue)
             };
+
+            // Final Schema Validation (Fail-Fast)
+            ConfigSchema.parse(finalConfig);
+
             setConfig(finalConfig);
           } else {
             setError(`Config file not found: ${configPath}`);
@@ -107,7 +116,14 @@ const App: React.FC<Props> = ({ configPath }) => {
           setConfig(defaultConfig);
         }
       } catch (err: any) {
-        setError(`Failed to load config: ${err.message}`);
+        if (err instanceof ZodError) {
+          const formattedError = err.issues
+            .map((e: any) => `[${e.path.join('.')}] ${e.message}`)
+            .join('\n');
+          setError(`Invalid Configuration Schema:\n${formattedError}`);
+        } else {
+          setError(`Failed to load config: ${err.message}`);
+        }
       }
     };
     loadConfig();

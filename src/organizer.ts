@@ -1,29 +1,43 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { z } from 'zod';
 
-export type ConfigMode = 'inherit' | 'override';
+// --- Schema Definitions (Runtime & Type-safe) ---
 
-export interface ConfigSection<T> {
-  mode: ConfigMode;
-  value: T;
+export const ConfigModeSchema = z.enum(['inherit', 'override']);
+export type ConfigMode = z.infer<typeof ConfigModeSchema>;
+
+export const ConfigRuleSchema = z.object({
+  match: z.array(z.string()),
+  target: z.string()
+});
+export type ConfigRule = z.infer<typeof ConfigRuleSchema>;
+
+export const FallbackConfigSchema = z.object({
+  action: z.enum(['skip', 'move']),
+  target: z.string().optional(),
+  log: z.boolean()
+});
+export type FallbackConfig = z.infer<typeof FallbackConfigSchema>;
+
+export function createConfigSectionSchema<T extends z.ZodTypeAny>(valueSchema: T) {
+  return z.object({
+    mode: ConfigModeSchema,
+    value: valueSchema
+  });
 }
 
-export interface ConfigRule {
-  match: string[];
-  target: string;
-}
+export const ConfigSchema = z.object({
+  categories: createConfigSectionSchema(z.array(z.string())),
+  rules: createConfigSectionSchema(z.array(ConfigRuleSchema)),
+  fallback: createConfigSectionSchema(FallbackConfigSchema)
+});
 
-export interface FallbackConfig {
-  action: 'skip' | 'move';
-  target?: string;
-  log: boolean;
-}
+// We can still export the interface for type-safety across the project
+export type Config = z.infer<typeof ConfigSchema>;
+export type ConfigSection<T> = { mode: ConfigMode; value: T };
 
-export interface Config {
-  categories: ConfigSection<string[]>;
-  rules: ConfigSection<ConfigRule[]>;
-  fallback: ConfigSection<FallbackConfig>;
-}
+// --- End of Schema ---
 
 export const IGNORE_FILES = [
   'organize_files.py',
@@ -47,7 +61,6 @@ export function getTargetFolder(filename: string, config: Config): string | null
     return 'Installers';
   }
   const ext = path.extname(filename).toLowerCase();
-  // Access via .rules.value
   for (const rule of config.rules.value) {
     if (rule.match.includes(ext)) {
       return rule.target;
@@ -72,7 +85,6 @@ export async function organize(targetDir: string, config: Config, dryRun: boolea
   const items = await fs.readdir(targetPath);
   
   const stats: OrganizeStats = {};
-  // Access via .categories.value
   config.categories.value.forEach(cat => stats[cat] = 0);
   
   const logs: string[] = [];
@@ -115,12 +127,11 @@ export async function organize(targetDir: string, config: Config, dryRun: boolea
           await fs.move(itemPath, destPath);
           logs.push(`[Moved] '${itemName}' -> '${targetFolder}/${finalItemName}'`);
         } catch (err: any) {
-          logs.push(`[Error] Could not move '${itemName}': ${err.message}`);
+          logs.push(`[Error] Could not move '${itemName}': {err.message}`);
           stats[targetFolder]--;
         }
       }
     } else {
-      // Fallback logic via .fallback.value
       const fb = config.fallback.value;
       if (!dryRun && fb.action === 'move' && fb.target) {
         const targetFolder = fb.target;
@@ -142,12 +153,12 @@ export async function organize(targetDir: string, config: Config, dryRun: boolea
           if (!stats[targetFolder]) stats[targetFolder] = 0;
           stats[targetFolder]++;
         } catch (err: any) {
-          logs.push(`[Fallback-Error] Could not move '${itemName}': ${err.message}`);
+          logs.push(`[Fallback-Error] Could not move '${itemName}': {err.message}`);
         }
       } else {
         unmoved.push({ name: itemName, isDir });
         if (!dryRun && fb.log) {
-          logs.push(`[Fallback] '${itemName}' (Action: ${fb.action})`);
+          logs.push(`[Fallback] '${itemName}' (Action: {fb.action})`);
         }
       }
     }
