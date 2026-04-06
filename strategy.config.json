@@ -1,45 +1,54 @@
 {
-  "categories": [
-    "Music",
-    "Images",
-    "Documents",
-    "Installers",
-    "Archives",
-    "Videos",
-    "Keys"
-  ],
-  "rules": [
-    {
-      "match": [".mp3", ".m4a"],
-      "target": "Music"
-    },
-    {
-      "match": [".jpg", ".jpeg", ".png", ".heic", ".webp"],
-      "target": "Images"
-    },
-    {
-      "match": [".pdf", ".epub", ".txt", ".md"],
-      "target": "Documents"
-    },
-    {
-      "match": [".dmg", ".exe", ".iso", ".app"],
-      "target": "Installers"
-    },
-    {
-      "match": [".zip"],
-      "target": "Archives"
-    },
-    {
-      "match": [".mp4"],
-      "target": "Videos"
-    },
-    {
-      "match": [".key", ".cer"],
-      "target": "Keys"
-    }
-  ],
+  "categories": {
+    "mode": "override",
+    "value": [
+      "Music",
+      "Images",
+      "Documents",
+      "Installers",
+      "Archives",
+      "Videos",
+      "Keys"
+    ]
+  },
+  "rules": {
+    "mode": "override",
+    "value": [
+      {
+        "match": [".mp3", ".m4a"],
+        "target": "Music"
+      },
+      {
+        "match": [".jpg", ".jpeg", ".png", ".heic", ".webp"],
+        "target": "Images"
+      },
+      {
+        "match": [".pdf", ".epub", ".txt", ".md"],
+        "target": "Documents"
+      },
+      {
+        "match": [".dmg", ".exe", ".iso", ".app"],
+        "target": "Installers"
+      },
+      {
+        "match": [".zip"],
+        "target": "Archives"
+      },
+      {
+        "match": [".mp4"],
+        "target": "Videos"
+      },
+      {
+        "match": [".key", ".cer"],
+        "target": "Keys"
+      }
+    ]
+  },
   "fallback": {
-    "action": "skip",
-    "log": true
+    "mode": "override",
+    "value": {
+      "action": "skip",
+      "log": true
+    }
   }
 }

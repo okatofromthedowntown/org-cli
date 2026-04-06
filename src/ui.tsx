@@ -3,7 +3,7 @@ import { render, Text, Box, useApp, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import fs from 'fs-extra';
 import path from 'path';
-import { organize, OrganizedResult, Config } from './organizer';
+import { organize, OrganizedResult, Config, ConfigSection } from './organizer';
 
 const HELP_TEXT = `# 文件整理方案
 
@@ -32,8 +32,9 @@ interface Props {
   configPath: string;
 }
 
-const normalizeFallback = (fb: any): any => {
+const normalizeFallbackValue = (fb: any): any => {
   if (!fb) return null;
+  // If rule-style (target instead of action)
   if (fb.target && !fb.action) {
     return {
       action: 'move',
@@ -46,6 +47,29 @@ const normalizeFallback = (fb: any): any => {
     target: fb.target,
     log: fb.log !== undefined ? fb.log : true
   };
+};
+
+const mergeSection = <T,>(base: ConfigSection<T>, custom: any, normalizer?: (val: any) => T): ConfigSection<T> => {
+  if (!custom) return base;
+  
+  const customMode = custom.mode || 'override';
+  const customRawValue = custom.value !== undefined ? custom.value : custom; // fallback for old format or shorthand
+  const customValue = normalizer ? normalizer(customRawValue) : customRawValue;
+
+  if (customMode === 'override') {
+    return { mode: 'override', value: customValue };
+  }
+
+  // Inherit mode
+  if (Array.isArray(base.value) && Array.isArray(customValue)) {
+    return {
+      mode: 'inherit',
+      value: [...base.value, ...customValue] as unknown as T
+    };
+  }
+
+  // For non-array (like fallback), inherit means baseline
+  return base;
 };
 
 const App: React.FC<Props> = ({ configPath }) => {
@@ -61,33 +85,27 @@ const App: React.FC<Props> = ({ configPath }) => {
     const loadConfig = async () => {
       try {
         const defaultPath = path.resolve('strategy.config.json');
-        const defaultConfigRaw = await fs.readJson(defaultPath);
-        const defaultFallback = normalizeFallback(defaultConfigRaw.fallback);
-        
-        let finalConfig: Config;
+        const defaultConfig: Config = await fs.readJson(defaultPath);
 
         if (configPath !== 'strategy.config.json') {
           const customPath = path.resolve(configPath);
           if (await fs.pathExists(customPath)) {
-            const customConfigRaw = await fs.readJson(customPath);
-            const customFallback = normalizeFallback(customConfigRaw.fallback);
+            const customRaw = await fs.readJson(customPath);
             
-            finalConfig = {
-              ...customConfigRaw,
-              fallback: customFallback || defaultFallback
+            // Explicit Semantic Merging
+            const finalConfig: Config = {
+              categories: mergeSection(defaultConfig.categories, customRaw.categories),
+              rules: mergeSection(defaultConfig.rules, customRaw.rules),
+              fallback: mergeSection(defaultConfig.fallback, customRaw.fallback, normalizeFallbackValue)
             };
+            setConfig(finalConfig);
           } else {
             setError(`Config file not found: ${configPath}`);
             return;
           }
         } else {
-          finalConfig = {
-            ...defaultConfigRaw,
-            fallback: defaultFallback
-          };
+          setConfig(defaultConfig);
         }
-
-        setConfig(finalConfig);
       } catch (err: any) {
         setError(`Failed to load config: ${err.message}`);
       }
@@ -177,7 +195,7 @@ const App: React.FC<Props> = ({ configPath }) => {
 
       {view === 'strategy' && config && (
         <Box marginTop={1} flexDirection="column">
-          <Text color="yellow" bold>--- Current Strategy (from {configPath}) ---</Text>
+          <Text color="yellow" bold>--- Current Strategy (Explicit Semantic) ---</Text>
           <Box borderStyle="single" padding={1} marginTop={1}>
             <Text>{JSON.stringify(config, null, 2)}</Text>
           </Box>

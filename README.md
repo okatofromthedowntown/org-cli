@@ -5,8 +5,6 @@ An interactive file organization CLI built with Node.js, React, and Ink.
 ## CLI Usage
 
 ```text
-  File organization CLI built with Ink
-
   Usage
     $ org-cli
 
@@ -17,57 +15,44 @@ An interactive file organization CLI built with Node.js, React, and Ink.
 
   Commands
     /dryrun    Preview file organization
-    /strategy  View current organization strategy (JSON)
+    /strategy  View current organization strategy (Explicit Semantic JSON)
     /help      Show organization plan
     /run       Execute file organization
     /exit      Quit the CLI
 ```
 
-## Configuration (strategy.config.json)
+## Semantic Configuration (显式语义配置)
 
-You can now decouple your organization rules into a JSON file.
+为了提高配置的可读性和可维护性，系统采用了显式的语义定义结构。每个配置块都包含 `mode` 和 `value`。
 
-### Example Format
+### 格式规范
 
 ```json
 {
-  "categories": ["Music", "Images", "Documents", "Others"],
-  "rules": [
-    {
-      "match": [".mp3", ".m4a"],
-      "target": "Music"
-    },
-    {
-      "match": [".jpg", ".png"],
-      "target": "Images"
-    }
-  ]
+  "categories": {
+    "mode": "inherit", 
+    "value": ["NewCategory"]
+  },
+  "rules": {
+    "mode": "override",
+    "value": [
+      { "match": [".exe"], "target": "Installers" }
+    ]
+  },
+  "fallback": {
+    "mode": "inherit",
+    "value": {}
+  }
 }
 ```
 
-## Organization Plan (文件整理方案)
-
-本方案旨在根据文件扩展名将文件归类到特定的文件夹中，以保持目录整洁。
-
-### Target Folders & Rules (目标文件夹结构与规则)
-
-默认规则如下（可在 `strategy.config.json` 中修改）：
-
-| 目标文件夹 (Folder) | 说明 (Description) | 包含的文件扩展名 (Extensions) |
-| :--- | :--- | :--- |
-| **Music** | 音乐文件 | `.mp3`, `.m4a` |
-| **Images** | 图片文件 | `.jpg`, `.jpeg`, `.png`, `.heic`, `.webp` |
-| **Documents** | 文档与书籍 | `.pdf`, `.epub`, `.txt`, `.md` |
-| **Installers** | 安装包与软件 | `.dmg`, `.exe`, `.iso`, `.app` |
-| **Archives** | 压缩包 | `.zip` |
-| **Videos** | 视频文件 | `.mp4` |
-| **Keys** | 密钥与证书 | `.key`, `.cer` |
-
-### Important Notes (注意事项)
-
-1.  **文件夹忽略**：脚本不会移动现有的文件夹（以 `.app` 结尾的 macOS 应用包除外，它们会被视为安装包处理）。
-2.  **自身忽略**：脚本不应移动自身或相关的配置文件。
-3.  **安全检查**：如果目标文件夹中已存在同名文件，脚本应跳过该文件或提示，避免覆盖。
+### 语义说明
+- **mode**:
+  - `override`: 完全忽略基础配置，仅使用当前 `value` 定义的内容。
+  - `inherit`: 
+    - 对于数组（如 `categories`, `rules`），会将 `value` 中的内容追加到基础配置之后。
+    - 对于对象（如 `fallback`），如果当前没有定义有效值，将沿用基础配置。
+- **value**: 具体的规则内容。
 
 ## Development
 
@@ -75,12 +60,7 @@ You can now decouple your organization rules into a JSON file.
 # Install dependencies
 npm install
 
-# Run in development mode
-npm start
-
-# Build production version
+# Build & Link
 npm run build
-
-# Link globally to use 'org-cli' command
 npm link
 ```
