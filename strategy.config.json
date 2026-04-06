@@ -37,5 +37,9 @@
       "match": [".key", ".cer"],
       "target": "Keys"
     }
-  ]
+  ],
+  "fallback": {
+    "action": "skip",
+    "log": true
+  }
 }

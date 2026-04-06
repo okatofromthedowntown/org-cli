@@ -6,9 +6,16 @@ export interface ConfigRule {
   target: string;
 }
 
+export interface FallbackConfig {
+  action: 'skip' | 'move';
+  target?: string;
+  log: boolean;
+}
+
 export interface Config {
   categories: string[];
   rules: ConfigRule[];
+  fallback: FallbackConfig;
 }
 
 export const IGNORE_FILES = [
@@ -107,7 +114,11 @@ export async function organize(targetDir: string, config: Config, dryRun: boolea
         }
       }
     } else {
+      // Fallback logic
       unmoved.push({ name: itemName, isDir });
+      if (!dryRun && config.fallback && config.fallback.log) {
+        logs.push(`[Fallback] '${itemName}' (Action: ${config.fallback.action})`);
+      }
     }
   }
 
