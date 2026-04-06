@@ -86,17 +86,21 @@ export async function organize(targetDir: string, config: Config, dryRun: boolea
 
       if (!dryRun) {
         const destFolder = path.join(targetPath, targetFolder);
-        const destPath = path.join(destFolder, itemName);
-        
+        let finalItemName = itemName;
+        let destPath = path.join(destFolder, finalItemName);
+
         try {
           await fs.ensureDir(destFolder);
+
           if (await fs.pathExists(destPath)) {
-            logs.push(`[Skipped] File '${itemName}' already exists in '${targetFolder}'`);
-            stats[targetFolder]--; 
-          } else {
-            await fs.move(itemPath, destPath);
-            logs.push(`[Moved] '${itemName}' -> '${targetFolder}/'`);
+            const timestamp = new Date().toISOString().replace(/[-:T]/g, '').split('.')[0];
+            finalItemName = `${itemName}.${timestamp}`;
+            destPath = path.join(destFolder, finalItemName);
+            logs.push(`[Renamed] File '${itemName}' already exists, moving as '${finalItemName}'`);
           }
+
+          await fs.move(itemPath, destPath);
+          logs.push(`[Moved] '${itemName}' -> '${targetFolder}/${finalItemName}'`);
         } catch (err: any) {
           logs.push(`[Error] Could not move '${itemName}': ${err.message}`);
           stats[targetFolder]--;
