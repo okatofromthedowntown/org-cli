@@ -101,14 +101,14 @@ const App: React.FC<Props> = ({ configPath }) => {
               fallback: mergeSection(defaultConfigRaw.fallback, customRaw.fallback, normalizeFallbackValue)
             };
             const validated = ConfigSchema.parse(finalConfigRaw);
-            validated.rules.value.sort((a, b) => b.priority - a.priority);
+            validated.rules.value.sort((a, b) => a.priority - b.priority);
             setConfig(validated);
           } else {
             setError(`Config file not found: ${configPath}`);
           }
         } else {
           const validated = ConfigSchema.parse(defaultConfigRaw);
-          validated.rules.value.sort((a, b) => b.priority - a.priority);
+          validated.rules.value.sort((a, b) => a.priority - b.priority);
           setConfig(validated);
         }
       } catch (err: any) {

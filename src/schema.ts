@@ -8,6 +8,12 @@ export type ConfigMode = z.infer<typeof ConfigModeSchema>;
 export const ConfigRuleSchema = z.object({
   match: z.array(z.string()),
   target: z.string(),
+  /**
+   * Priority of the rule. 
+   * Rule with SMALLER value has HIGHER priority (e.g., -1 > 0 > 1).
+   * Rules with the same priority follow the order of definition.
+   * @default 0
+   */
   priority: z.number().default(0)
 });
 export type ConfigRule = z.infer<typeof ConfigRuleSchema>;
