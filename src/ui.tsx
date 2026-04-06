@@ -44,13 +44,31 @@ const App: React.FC<Props> = ({ configPath }) => {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        const fullPath = path.resolve(configPath);
-        if (await fs.pathExists(fullPath)) {
-          const data = await fs.readJson(fullPath);
-          setConfig(data);
+        const defaultPath = path.resolve('strategy.config.json');
+        let finalConfig: Config;
+
+        // Load default config as a baseline
+        const defaultConfig: Config = await fs.readJson(defaultPath);
+
+        if (configPath !== 'strategy.config.json') {
+          const customPath = path.resolve(configPath);
+          if (await fs.pathExists(customPath)) {
+            const customConfig = await fs.readJson(customPath);
+            
+            // Merge logic: use custom config but inherit fallback if missing
+            finalConfig = {
+              ...customConfig,
+              fallback: customConfig.fallback || defaultConfig.fallback
+            };
+          } else {
+            setError(`Config file not found: ${configPath}`);
+            return;
+          }
         } else {
-          setError(`Config file not found: ${configPath}`);
+          finalConfig = defaultConfig;
         }
+
+        setConfig(finalConfig);
       } catch (err: any) {
         setError(`Failed to load config: ${err.message}`);
       }
